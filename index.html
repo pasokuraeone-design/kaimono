@@ -445,7 +445,9 @@ function toggleBuy(id){
 }
 function cycleStock(id){
   const i = state.items.find(x=>x.id===id); if(!i) return;
-  const order=['ok','low','out']; // 図鑑タップでは「届いた」は自動戻し用なので手動循環に含めない
+  // 「届いた」をタップしたら「在庫 十分」に戻す(確認して片付ける動作)
+  if(i.stock==='arrived'){ i.stock='ok'; save(); return; }
+  const order=['ok','low','out']; // 十分 ▸ そろそろ ▸ 切れた の循環
   let idx = order.indexOf(i.stock); if(idx<0) idx=0;
   i.stock = order[(idx+1)%order.length];
   // 在庫が減った品は自動でまとめ買い候補に
