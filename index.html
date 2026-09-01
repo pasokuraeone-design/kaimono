@@ -1,0 +1,546 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>フジタ家 まとめ買い</title>
+<style>
+  :root{
+    --bg:#fdf3e3;          /* クリーム背景 */
+    --panel:#ffffff;
+    --pink:#fce9e6;        /* まとめ買いパネル */
+    --pink-border:#f3c9c2;
+    --accent:#e05a4b;      /* 赤(出発) */
+    --accent-d:#c9483a;
+    --green:#2e9d6e;
+    --green-bg:#e7f6ee;
+    --green-border:#bfe6d1;
+    --orange:#e0912b;
+    --orange-bg:#fdf1dd;
+    --blue:#3f6fb5;
+    --blue-bg:#e9f0fb;
+    --text:#33302c;
+    --muted:#8a847c;
+    --line:#ece3d5;
+    --radius:16px;
+    --shadow:0 2px 10px rgba(120,90,60,.10);
+  }
+  *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+  body{
+    font-family:'Hiragino Kaku Gothic ProN','Hiragino Sans','Meiryo',system-ui,sans-serif;
+    background:var(--bg);color:var(--text);
+    line-height:1.5;padding-bottom:40px;
+    -webkit-text-size-adjust:100%;
+  }
+  .wrap{max-width:900px;margin:0 auto;padding:14px;}
+
+  /* ---- ヘッダー ---- */
+  header{display:flex;align-items:center;gap:10px;padding:6px 4px 14px;}
+  header h1{font-size:20px;font-weight:800;letter-spacing:.02em;}
+  header .sync{margin-left:auto;font-size:12px;color:var(--muted);display:flex;align-items:center;gap:5px;}
+  header .dot{width:9px;height:9px;border-radius:50%;background:#c9c2b6;}
+  header .dot.on{background:var(--green);box-shadow:0 0 0 3px var(--green-bg);}
+  header .dot.local{background:var(--orange);box-shadow:0 0 0 3px var(--orange-bg);}
+
+  /* ---- カード共通 ---- */
+  .card{background:var(--panel);border-radius:var(--radius);box-shadow:var(--shadow);padding:16px;margin-bottom:16px;}
+
+  /* ---- まとめ買いパネル ---- */
+  .cart{background:var(--pink);border:1.5px solid var(--pink-border);}
+  .cart .cart-head{display:flex;align-items:center;gap:8px;margin-bottom:12px;}
+  .cart .cart-head h2{font-size:17px;font-weight:800;}
+  .depart{margin-left:auto;background:var(--accent);color:#fff;border:none;
+    font-size:15px;font-weight:800;padding:11px 16px;border-radius:12px;cursor:pointer;
+    box-shadow:0 3px 0 var(--accent-d);transition:transform .08s;}
+  .depart:active{transform:translateY(2px);box-shadow:0 1px 0 var(--accent-d);}
+  .depart:disabled{background:#d9c6c2;box-shadow:0 3px 0 #c3b0ab;cursor:default;}
+
+  .buylist{background:#fff;border-radius:12px;padding:12px;}
+  .buylist .empty{color:var(--muted);font-size:14px;text-align:center;padding:14px 4px;}
+  .buyrow{display:flex;align-items:center;gap:10px;padding:9px 6px;border-bottom:1px solid var(--line);}
+  .buyrow:last-child{border-bottom:none;}
+  .buyrow .emo{font-size:22px;width:26px;text-align:center;}
+  .buyrow .nm{font-weight:700;}
+  .buyrow .badge{font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px;margin-left:2px;}
+  .buyrow .rm{margin-left:auto;background:none;border:none;color:var(--muted);font-size:20px;cursor:pointer;padding:2px 8px;line-height:1;}
+  .badge.low{background:var(--orange-bg);color:var(--orange);}
+  .badge.out{background:#fbe6e2;color:var(--accent);}
+  .badge.arrived{background:var(--green-bg);color:var(--green);}
+
+  /* ---- 買い物中(チェックリスト) ---- */
+  .trip{background:#fff;}
+  .trip-head{display:flex;align-items:center;gap:10px;margin-bottom:6px;}
+  .trip-head h2{font-size:16px;font-weight:800;}
+  .trip-head .time{font-size:12px;color:var(--muted);}
+  .trip-head .count{margin-left:auto;font-weight:800;color:var(--blue);}
+  .pbar{height:8px;background:#eee6da;border-radius:6px;overflow:hidden;margin:8px 0 14px;}
+  .pbar > i{display:block;height:100%;background:var(--green);width:0;transition:width .3s;}
+  .checkrow{display:flex;align-items:center;gap:12px;padding:13px 10px;border:1.5px solid var(--line);
+    border-radius:12px;margin-bottom:9px;cursor:pointer;transition:.12s;background:#fff;}
+  .checkrow.done{background:var(--green-bg);border-color:var(--green-border);}
+  .checkrow .box{width:26px;height:26px;border-radius:8px;border:2.5px solid #cfc7ba;flex:none;
+    display:flex;align-items:center;justify-content:center;font-size:17px;color:#fff;}
+  .checkrow.done .box{background:var(--green);border-color:var(--green);}
+  .checkrow .emo{font-size:22px;}
+  .checkrow .nm{font-weight:700;}
+  .checkrow.done .nm{text-decoration:line-through;color:var(--muted);}
+  .allbought{width:100%;margin-top:6px;background:var(--green);color:#fff;border:none;
+    font-size:16px;font-weight:800;padding:14px;border-radius:12px;cursor:pointer;box-shadow:0 3px 0 #24805a;}
+  .allbought:active{transform:translateY(2px);box-shadow:0 1px 0 #24805a;}
+
+  /* ---- 購入済み(車の中) ---- */
+  .car{background:var(--green-bg);border:1.5px solid var(--green-border);}
+  .car .car-head{display:flex;align-items:center;gap:8px;margin-bottom:10px;}
+  .car .car-head h2{font-size:16px;font-weight:800;color:#1f7a54;}
+  .car .car-head .tag{margin-left:auto;font-size:12px;font-weight:700;color:#1f7a54;background:#fff;padding:3px 10px;border-radius:20px;}
+  .carrow{display:flex;align-items:center;gap:10px;padding:8px 6px;border-bottom:1px solid var(--green-border);}
+  .carrow:last-child{border-bottom:none;}
+  .carrow .emo{font-size:20px;width:24px;text-align:center;}
+  .carrow .nm{font-weight:700;}
+  .arrive{width:100%;margin-top:12px;background:#1f7a54;color:#fff;border:none;
+    font-size:16px;font-weight:800;padding:14px;border-radius:12px;cursor:pointer;box-shadow:0 3px 0 #145c3d;}
+  .arrive:active{transform:translateY(2px);box-shadow:0 1px 0 #145c3d;}
+
+  /* ---- 品目図鑑 ---- */
+  .cat-head{display:flex;align-items:center;gap:8px;margin-bottom:12px;}
+  .cat-head h2{font-size:17px;font-weight:800;}
+  .cat-head .edit{margin-left:auto;font-size:13px;font-weight:700;color:var(--blue);background:var(--blue-bg);
+    border:none;padding:7px 12px;border-radius:20px;cursor:pointer;display:flex;align-items:center;gap:5px;}
+  .tabs{display:flex;gap:8px;overflow-x:auto;padding-bottom:10px;margin-bottom:6px;-ms-overflow-style:none;scrollbar-width:none;}
+  .tabs::-webkit-scrollbar{display:none;}
+  .tab{flex:none;font-size:14px;font-weight:700;padding:8px 16px;border-radius:20px;border:none;
+    background:#fff;color:var(--muted);cursor:pointer;box-shadow:var(--shadow);}
+  .tab.active{background:var(--blue);color:#fff;}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px;}
+  @media(max-width:520px){.grid{grid-template-columns:1fr 1fr;gap:10px;}}
+  .item{position:relative;background:#fff;border:2px solid transparent;border-radius:14px;padding:14px 10px 10px;
+    text-align:center;cursor:pointer;box-shadow:var(--shadow);transition:.12s;}
+  .item.sel{border-color:var(--blue);background:#f4f8ff;}
+  .item .emo{font-size:38px;line-height:1;margin-bottom:8px;filter:drop-shadow(0 2px 3px rgba(0,0,0,.12));}
+  .item .nm{font-weight:800;font-size:15px;}
+  .item .sub{font-size:11px;color:var(--muted);margin-top:2px;min-height:14px;}
+  .item .top{position:absolute;top:8px;right:8px;font-size:10px;font-weight:800;padding:2px 8px;border-radius:20px;}
+  .item .chk{position:absolute;top:8px;left:8px;width:22px;height:22px;border-radius:50%;
+    background:var(--blue);color:#fff;display:none;align-items:center;justify-content:center;font-size:14px;}
+  .item.sel .chk{display:flex;}
+  .item .stk{margin-top:9px;font-size:11px;font-weight:800;padding:5px 0;border-radius:8px;border:1.5px dashed var(--line);color:var(--muted);}
+  .item .stk.low{color:var(--orange);border-color:var(--orange);background:var(--orange-bg);border-style:solid;}
+  .item .stk.out{color:var(--accent);border-color:var(--accent);background:#fbe6e2;border-style:solid;}
+  .item .stk.arrived{color:var(--green);border-color:var(--green-border);background:var(--green-bg);border-style:solid;}
+
+  /* ---- 編集モード ---- */
+  .item.editing{cursor:default;}
+  .item .del{position:absolute;top:-8px;right:-8px;width:26px;height:26px;border-radius:50%;
+    background:var(--accent);color:#fff;border:none;font-size:16px;cursor:pointer;box-shadow:0 2px 5px rgba(0,0,0,.25);z-index:2;}
+  .additem{display:flex;align-items:center;justify-content:center;border:2.5px dashed var(--pink-border);
+    background:#fff8f6;color:var(--accent);font-size:30px;font-weight:700;cursor:pointer;min-height:150px;border-radius:14px;}
+
+  /* ---- モーダル ---- */
+  .modal-bg{position:fixed;inset:0;background:rgba(50,40,30,.45);display:none;align-items:center;justify-content:center;padding:16px;z-index:50;}
+  .modal-bg.on{display:flex;}
+  .modal{background:#fff;border-radius:18px;padding:20px;width:100%;max-width:380px;box-shadow:0 10px 40px rgba(0,0,0,.3);}
+  .modal h3{font-size:17px;font-weight:800;margin-bottom:14px;}
+  .modal label{display:block;font-size:12px;font-weight:700;color:var(--muted);margin:10px 0 4px;}
+  .modal input,.modal select{width:100%;font-size:16px;padding:10px 12px;border:1.5px solid var(--line);border-radius:10px;font-family:inherit;}
+  .emo-pick{display:flex;gap:6px;flex-wrap:wrap;margin-top:4px;}
+  .emo-pick button{font-size:22px;width:40px;height:40px;border:1.5px solid var(--line);border-radius:10px;background:#fff;cursor:pointer;}
+  .emo-pick button.on{border-color:var(--blue);background:var(--blue-bg);}
+  .modal .row{display:flex;gap:10px;margin-top:18px;}
+  .modal .row button{flex:1;font-size:15px;font-weight:800;padding:12px;border-radius:11px;border:none;cursor:pointer;}
+  .modal .ok{background:var(--blue);color:#fff;}
+  .modal .cancel{background:#f0ece4;color:var(--muted);}
+
+  .hint{font-size:12px;color:var(--muted);text-align:center;margin-top:18px;line-height:1.7;}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <span style="font-size:24px">🛒</span>
+    <h1>フジタ家 まとめ買い</h1>
+    <div class="sync"><span class="dot local" id="syncDot"></span><span id="syncText">この端末に保存中</span></div>
+  </header>
+
+  <!-- まとめ買い / 買い物中 / 車の中 -->
+  <div id="cartArea"></div>
+
+  <!-- 品目図鑑 -->
+  <div class="card">
+    <div class="cat-head">
+      <h2>📖 品目図鑑</h2>
+      <button class="edit" id="editBtn">✏️ 編集</button>
+    </div>
+    <div class="tabs" id="tabs"></div>
+    <div class="grid" id="grid"></div>
+  </div>
+
+  <p class="hint">
+    品目をタップ → まとめ買いに追加 / 在庫バーをタップ → 十分▸そろそろ▸切れた を切り替え<br>
+    「今回の買い物に出発！」→ チェックリスト →「全部買った！」→ 車の中 →「自宅に到着！」で在庫が十分に戻ります
+  </p>
+</div>
+
+<!-- 品目 追加/編集モーダル -->
+<div class="modal-bg" id="modalBg">
+  <div class="modal">
+    <h3 id="modalTitle">品目を追加</h3>
+    <label>名前</label>
+    <input id="mName" placeholder="例：牛乳" maxlength="12">
+    <label>メモ（任意）</label>
+    <input id="mSub" placeholder="例：1L / ○○ブランド" maxlength="16">
+    <label>アイコン</label>
+    <div class="emo-pick" id="mEmo"></div>
+    <label>カテゴリ</label>
+    <select id="mCat"></select>
+    <div class="row">
+      <button class="cancel" id="mCancel">キャンセル</button>
+      <button class="ok" id="mOk">保存</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* =========================================================
+   フジタ家 まとめ買い  ―  データ層
+   ・Firebase設定を入れると家族で共有(リアルタイム同期)
+   ・未設定ならこの端末のブラウザに保存(localStorage)
+   ========================================================= */
+
+// ▼▼▼ Firebase 設定(家族共有モード) ▼▼▼
+const FIREBASE_CONFIG = {
+  apiKey: "AIzaSyCB6Hg29Ef3UhL8T8nKdioi96xNjw9gQbA",
+  authDomain: "fujita-kaimono.firebaseapp.com",
+  databaseURL: "https://fujita-kaimono-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "fujita-kaimono",
+  storageBucket: "fujita-kaimono.firebasestorage.app",
+  messagingSenderId: "846278091769",
+  appId: "1:846278091769:web:6abb4b5dcdf5fbe1acd328"
+};
+// ▲▲▲ databaseURL を入れると共有モードで動きます ▲▲▲
+
+const CATS = ['朝食','洗面所','トイレ','リビング','調味料','キッチン','食材'];
+const EMOJIS = ['🥚','🌭','🍞','🧈','🍓','🥣','🍵','🥗','🍚','🥓','🍖','🥦','🥬','🧴','🧻','🧼','🧽','🧂','🍶','🥛','🧀','🧴','🍅','🧅','🥔','🍎','🍌','🥕','☕','🍫','🧊','🧴','🧴'];
+
+// 初期データ(スクショの品目)
+const SEED = {
+  items:[
+    {id:'i1', name:'卵', sub:'10個入', emo:'🥚', cat:'朝食', stock:'ok', buy:false},
+    {id:'i2', name:'ウインナー', sub:'シャウエッセン等', emo:'🌭', cat:'朝食', stock:'ok', buy:false},
+    {id:'i3', name:'食パン', sub:'6枚切', emo:'🍞', cat:'朝食', stock:'ok', buy:false},
+    {id:'i4', name:'マーガリン', sub:'ネオソフト等', emo:'🧈', cat:'朝食', stock:'ok', buy:false},
+    {id:'i5', name:'ジャム', sub:'アヲハタ等', emo:'🍓', cat:'朝食', stock:'ok', buy:false},
+    {id:'i6', name:'スープ', sub:'クノール等', emo:'🥣', cat:'朝食', stock:'ok', buy:false},
+    {id:'i7', name:'麦茶', sub:'', emo:'🍵', cat:'朝食', stock:'ok', buy:false},
+    {id:'i8', name:'ドレッシング', sub:'', emo:'🥗', cat:'朝食', stock:'ok', buy:false},
+    {id:'i9', name:'米', sub:'', emo:'🍚', cat:'食材', stock:'low', buy:false},
+    {id:'i10', name:'ベーコン', sub:'', emo:'🥓', cat:'食材', stock:'ok', buy:false},
+    {id:'i11', name:'ハム', sub:'', emo:'🍖', cat:'食材', stock:'ok', buy:false},
+    {id:'i12', name:'冷凍ブロッコリー', sub:'', emo:'🥦', cat:'食材', stock:'ok', buy:false},
+    {id:'i13', name:'冷凍ホウレンソウ', sub:'', emo:'🥬', cat:'食材', stock:'ok', buy:false},
+    {id:'i14', name:'醤油', sub:'', emo:'🍶', cat:'調味料', stock:'low', buy:false},
+    {id:'i15', name:'和風だしの素', sub:'', emo:'🧂', cat:'調味料', stock:'ok', buy:false},
+    {id:'i16', name:'洗濯洗剤', sub:'', emo:'🧴', cat:'洗面所', stock:'ok', buy:false},
+    {id:'i17', name:'食器用洗剤', sub:'', emo:'🧽', cat:'キッチン', stock:'ok', buy:false},
+    {id:'i18', name:'トイレットペーパー', sub:'', emo:'🧻', cat:'トイレ', stock:'ok', buy:false},
+  ],
+  trip:null   // {departAt, phase:'shopping'|'car', lines:[{id,name,emo,done}]}
+};
+
+const STORE_KEY = 'fujita_kaimono_v1';
+let DB = null;         // Firebase database ref (共有モード時)
+let state = null;
+let activeTab = CATS[0];
+let editMode = false;
+let editingId = null;
+
+/* ---------- 保存・読込 ---------- */
+function loadLocal(){
+  try{ const s = localStorage.getItem(STORE_KEY); if(s) return JSON.parse(s); }catch(e){}
+  return JSON.parse(JSON.stringify(SEED));
+}
+function saveLocal(){
+  try{ localStorage.setItem(STORE_KEY, JSON.stringify(state)); }catch(e){}
+}
+function save(){
+  if(DB){ DB.set(state); }   // 共有モード：クラウドに書き込み(→onValueで全端末更新)
+  else { saveLocal(); render(); }
+}
+
+/* ---------- 起動 ---------- */
+function boot(){
+  if(FIREBASE_CONFIG){ startFirebase(); }
+  else { state = loadLocal(); markSync(false); render(); }
+}
+
+function markSync(online){
+  const dot=document.getElementById('syncDot'), t=document.getElementById('syncText');
+  if(online){ dot.className='dot on'; t.textContent='家族と同期中'; }
+  else { dot.className='dot local'; t.textContent='この端末に保存中'; }
+}
+
+/* ---------- Firebase(共有モード) ---------- */
+function startFirebase(){
+  const s1=document.createElement('script'); s1.src='https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js';
+  const s2=document.createElement('script'); s2.src='https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js';
+  s1.onload=()=>document.head.appendChild(s2);
+  s2.onload=()=>{
+    firebase.initializeApp(FIREBASE_CONFIG);
+    DB = firebase.database().ref('kaimono');
+    DB.on('value', snap=>{
+      state = snap.val() || JSON.parse(JSON.stringify(SEED));
+      if(!snap.val()) DB.set(state);       // 初回：初期データを流し込み
+      markSync(true); render();
+    });
+  };
+  s2.onerror=()=>{ state=loadLocal(); markSync(false); render(); };
+  document.head.appendChild(s1);
+}
+
+document.addEventListener('DOMContentLoaded', boot);
+</script>
+
+<script>
+/* =========================================================
+   描画・操作
+   ========================================================= */
+const $ = s=>document.querySelector(s);
+
+function render(){
+  if(!state) return;
+  renderCart();
+  renderCatalog();
+}
+
+/* ---------- まとめ買い / 買い物中 / 車の中 ---------- */
+function renderCart(){
+  const area = $('#cartArea');
+  const t = state.trip;
+
+  // 車の中(購入済み)
+  if(t && t.phase==='car'){
+    area.innerHTML = carHTML(t);
+    return;
+  }
+  // 買い物中(チェックリスト)
+  if(t && t.phase==='shopping'){
+    area.innerHTML = tripHTML(t);
+    return;
+  }
+  // まとめ買いリスト
+  area.innerHTML = buyPanelHTML();
+}
+
+function buyPanelHTML(){
+  const buy = state.items.filter(i=>i.buy);
+  const rows = buy.length ? buy.map(i=>`
+    <div class="buyrow">
+      <span class="emo">${i.emo}</span>
+      <span class="nm">${esc(i.name)}</span>
+      ${stockBadge(i.stock)}
+      <button class="rm" onclick="toggleBuy('${i.id}')">×</button>
+    </div>`).join('')
+    : `<div class="empty">下の品目図鑑からタップして追加してください🛍️</div>`;
+
+  return `
+  <div class="card cart">
+    <div class="cart-head">
+      <span style="font-size:20px">🛒</span>
+      <h2>まとめ買い</h2>
+      <button class="depart" ${buy.length?'':'disabled'} onclick="depart()">今回の買い物に出発！</button>
+    </div>
+    <div class="buylist">${rows}</div>
+  </div>`;
+}
+
+function tripHTML(t){
+  const done = t.lines.filter(l=>l.done).length;
+  const pct = t.lines.length ? Math.round(done/t.lines.length*100) : 0;
+  const rows = t.lines.map(l=>`
+    <div class="checkrow ${l.done?'done':''}" onclick="toggleLine('${l.id}')">
+      <div class="box">${l.done?'✓':''}</div>
+      <span class="emo">${l.emo}</span>
+      <span class="nm">${esc(l.name)}</span>
+    </div>`).join('');
+  return `
+  <div class="card trip">
+    <div class="trip-head">
+      <span style="font-size:20px">🛒</span>
+      <h2>買い物中…</h2>
+      <span class="time">${fmtTime(t.departAt)} 出発</span>
+      <span class="count">${done}/${t.lines.length}</span>
+    </div>
+    <div class="pbar"><i style="width:${pct}%"></i></div>
+    ${rows}
+    <button class="allbought" onclick="allBought()">全部買った！（車に積んだ）</button>
+  </div>`;
+}
+
+function carHTML(t){
+  const rows = t.lines.map(l=>`
+    <div class="carrow"><span class="emo">${l.emo}</span><span class="nm">${esc(l.name)}</span></div>
+  `).join('');
+  return `
+  <div class="card car">
+    <div class="car-head">
+      <span style="font-size:20px">✅</span>
+      <h2>購入済み（車の中）</h2>
+      <span class="tag">🚗 車内</span>
+    </div>
+    ${rows}
+    <button class="arrive" onclick="arriveHome()">自宅に到着！（在庫を戻す）</button>
+  </div>`;
+}
+
+/* ---------- 品目図鑑 ---------- */
+function renderCatalog(){
+  const tabs = $('#tabs');
+  tabs.innerHTML = CATS.map(c=>`<button class="tab ${c===activeTab?'active':''}" onclick="setTab('${c}')">${c}</button>`).join('');
+
+  const grid = $('#grid');
+  const list = state.items.filter(i=>i.cat===activeTab);
+  let html = list.map(i=>itemHTML(i)).join('');
+  if(editMode){
+    html += `<div class="additem" onclick="openAdd()">＋</div>`;
+  }
+  grid.innerHTML = html || `<div class="empty" style="grid-column:1/-1;color:var(--muted);text-align:center;padding:20px">このカテゴリはまだ品目がありません</div>` + (editMode?`<div class="additem" onclick="openAdd()">＋</div>`:'');
+  if(editMode && !list.length){ grid.innerHTML = `<div class="additem" onclick="openAdd()">＋</div>`; }
+
+  $('#editBtn').textContent = editMode ? '✓ 完了' : '✏️ 編集';
+  $('#editBtn').style.background = editMode ? 'var(--green-bg)' : 'var(--blue-bg)';
+  $('#editBtn').style.color = editMode ? 'var(--green)' : 'var(--blue)';
+}
+
+function itemHTML(i){
+  const stkLabel = {ok:'在庫 十分', low:'そろそろ', out:'切れた！', arrived:'届いた'}[i.stock] || '在庫 十分';
+  const topBadge = (i.stock==='low')?`<span class="top badge low">少なめ</span>`
+                 : (i.stock==='out')?`<span class="top badge out">切れた</span>`
+                 : (i.stock==='arrived')?`<span class="top badge arrived">届いた</span>`:'';
+  if(editMode){
+    return `
+    <div class="item editing" onclick="openEdit('${i.id}')">
+      <button class="del" onclick="event.stopPropagation();delItem('${i.id}')">×</button>
+      <div class="emo">${i.emo}</div>
+      <div class="nm">${esc(i.name)}</div>
+      <div class="sub">${esc(i.sub||'')}</div>
+    </div>`;
+  }
+  return `
+  <div class="item ${i.buy?'sel':''}" onclick="toggleBuy('${i.id}')">
+    <div class="chk">✓</div>
+    ${topBadge}
+    <div class="emo">${i.emo}</div>
+    <div class="nm">${esc(i.name)}</div>
+    <div class="sub">${esc(i.sub||'')}</div>
+    <div class="stk ${i.stock}" onclick="event.stopPropagation();cycleStock('${i.id}')">${stkLabel}</div>
+  </div>`;
+}
+
+/* ---------- 操作 ---------- */
+function setTab(c){ activeTab=c; renderCatalog(); }
+
+function toggleBuy(id){
+  const i = state.items.find(x=>x.id===id); if(!i) return;
+  i.buy = !i.buy; save();
+}
+function cycleStock(id){
+  const i = state.items.find(x=>x.id===id); if(!i) return;
+  const order=['ok','low','out']; // 図鑑タップでは「届いた」は自動戻し用なので手動循環に含めない
+  let idx = order.indexOf(i.stock); if(idx<0) idx=0;
+  i.stock = order[(idx+1)%order.length];
+  // 在庫が減った品は自動でまとめ買い候補に
+  if(i.stock==='low' || i.stock==='out') i.buy = true;
+  save();
+}
+
+function depart(){
+  const buy = state.items.filter(i=>i.buy);
+  if(!buy.length) return;
+  state.trip = {
+    departAt: Date.now(),
+    phase:'shopping',
+    lines: buy.map(i=>({id:i.id, name:i.name, emo:i.emo, done:false}))
+  };
+  save();
+}
+function toggleLine(id){
+  const l = state.trip.lines.find(x=>x.id===id); if(!l) return;
+  l.done = !l.done; save();
+}
+function allBought(){
+  state.trip.lines.forEach(l=>l.done=true);
+  state.trip.phase='car';
+  save();
+}
+function arriveHome(){
+  // 買った品の在庫を「届いた」に戻し、まとめ買いから外す
+  state.trip.lines.forEach(l=>{
+    const i = state.items.find(x=>x.id===l.id);
+    if(i){ i.stock='arrived'; i.buy=false; }
+  });
+  state.trip = null;
+  save();
+}
+
+/* ---------- 編集 ---------- */
+function toggleEdit(){ editMode=!editMode; renderCatalog(); }
+function delItem(id){
+  if(!confirm('この品目を図鑑から削除しますか？')) return;
+  state.items = state.items.filter(i=>i.id!==id); save();
+}
+
+// モーダル
+let pickedEmo = EMOJIS[0];
+function openAdd(){
+  editingId=null; pickedEmo=EMOJIS[0];
+  $('#modalTitle').textContent='品目を追加';
+  $('#mName').value=''; $('#mSub').value='';
+  fillCatSelect(activeTab); buildEmoPick(); $('#modalBg').classList.add('on');
+}
+function openEdit(id){
+  const i=state.items.find(x=>x.id===id); if(!i) return;
+  editingId=id; pickedEmo=i.emo;
+  $('#modalTitle').textContent='品目を編集';
+  $('#mName').value=i.name; $('#mSub').value=i.sub||'';
+  fillCatSelect(i.cat); buildEmoPick(); $('#modalBg').classList.add('on');
+}
+function fillCatSelect(sel){
+  $('#mCat').innerHTML = CATS.map(c=>`<option ${c===sel?'selected':''}>${c}</option>`).join('');
+}
+function buildEmoPick(){
+  const uniq=[...new Set(EMOJIS)];
+  $('#mEmo').innerHTML = uniq.map(e=>`<button class="${e===pickedEmo?'on':''}" onclick="pickEmo('${e}')">${e}</button>`).join('');
+}
+function pickEmo(e){ pickedEmo=e; buildEmoPick(); }
+function closeModal(){ $('#modalBg').classList.remove('on'); }
+function saveModal(){
+  const name=$('#mName').value.trim(); if(!name){ alert('名前を入力してください'); return; }
+  const sub=$('#mSub').value.trim(); const cat=$('#mCat').value;
+  if(editingId){
+    const i=state.items.find(x=>x.id===editingId);
+    if(i){ i.name=name; i.sub=sub; i.emo=pickedEmo; i.cat=cat; }
+  }else{
+    state.items.push({id:'i'+Date.now(), name, sub, emo:pickedEmo, cat, stock:'ok', buy:false});
+    activeTab=cat;
+  }
+  closeModal(); save();
+}
+
+/* ---------- ユーティリティ ---------- */
+function stockBadge(s){
+  if(s==='low') return `<span class="badge low">そろそろ</span>`;
+  if(s==='out') return `<span class="badge out">切れた</span>`;
+  if(s==='arrived') return `<span class="badge arrived">届いた</span>`;
+  return '';
+}
+function fmtTime(ts){ const d=new Date(ts); return `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`; }
+function esc(s){ return (s||'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
+
+/* イベント紐付け */
+document.getElementById('editBtn').addEventListener('click', toggleEdit);
+document.getElementById('mCancel').addEventListener('click', closeModal);
+document.getElementById('mOk').addEventListener('click', saveModal);
+document.getElementById('modalBg').addEventListener('click', e=>{ if(e.target.id==='modalBg') closeModal(); });
+</script>
+</body>
+</html>
