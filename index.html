@@ -84,9 +84,10 @@
   .checkrow .emo{font-size:22px;}
   .checkrow .nm{font-weight:700;}
   .checkrow.done .nm{text-decoration:line-through;color:var(--muted);}
-  .allbought{width:100%;margin-top:6px;background:var(--green);color:#fff;border:none;
-    font-size:16px;font-weight:800;padding:14px;border-radius:12px;cursor:pointer;box-shadow:0 3px 0 #24805a;}
-  .allbought:active{transform:translateY(2px);box-shadow:0 1px 0 #24805a;}
+  .trip-note{font-size:12px;color:var(--muted);margin:2px 0 12px;line-height:1.5;}
+  .restbtn{width:100%;margin-top:8px;background:#fff;color:var(--muted);border:1.5px solid var(--line);
+    font-size:14px;font-weight:800;padding:12px;border-radius:12px;cursor:pointer;}
+  .restbtn:active{background:#f6f1e8;}
 
   /* ---- 購入済み(車の中) ---- */
   .car{background:var(--green-bg);border:1.5px solid var(--green-border);}
@@ -97,6 +98,8 @@
   .carrow:last-child{border-bottom:none;}
   .carrow .emo{font-size:20px;width:24px;text-align:center;}
   .carrow .nm{font-weight:700;}
+  .undo{margin-left:8px;background:#fff;border:1.5px solid var(--green-border);color:#1f7a54;
+    font-size:12px;font-weight:800;padding:4px 10px;border-radius:16px;cursor:pointer;flex:none;}
   .arrive{width:100%;margin-top:12px;background:#1f7a54;color:#fff;border:none;
     font-size:16px;font-weight:800;padding:14px;border-radius:12px;cursor:pointer;box-shadow:0 3px 0 #145c3d;}
   .arrive:active{transform:translateY(2px);box-shadow:0 1px 0 #145c3d;}
@@ -206,7 +209,8 @@
 
   <p class="hint">
     品目をタップ → まとめ買いに追加 / 在庫バーをタップ → 十分▸そろそろ▸切れた を切り替え<br>
-    「今回の買い物に出発！」→ チェックリスト →「全部買った！」→ 車の中 →「自宅に到着！」で在庫が十分に戻ります
+    「出発」→ 買えた品をタップすると「購入済み」へ移動（買った人つき・相手を待たなくてOK）<br>
+    帰ったら「家に着いた」→ 自分が買ったぶんだけ在庫が戻ります。分担して別々に買ってもOK
   </p>
 </div>
 
@@ -314,6 +318,13 @@ function ensureShape(s){
     s.members=[{id:'m1',name:'わたし',color:'#e05a4b'},{id:'m2',name:'ダンナ',color:'#3f6fb5'}];
     changed=true;
   }
+  // 旧形式のtrip(done/phase)を新形式(status)へ移行
+  if(s.trip && s.trip.lines){
+    s.trip.lines.forEach(l=>{
+      if(l.status===undefined){ l.status = l.done ? 'bought' : 'todo'; delete l.done; changed=true; }
+    });
+    if(s.trip.phase!==undefined){ delete s.trip.phase; changed=true; }
+  }
   return changed;
 }
 
@@ -387,23 +398,22 @@ function renderMeChip(){
   }
 }
 
-/* ---------- まとめ買い / 買い物中 / 車の中 ---------- */
+/* ---------- まとめ買い / 買い物中 / 購入済み ---------- */
 function renderCart(){
   const area = $('#cartArea');
   const t = state.trip;
 
-  // 車の中(購入済み)
-  if(t && t.phase==='car'){
-    area.innerHTML = carHTML(t);
-    return;
-  }
-  // 買い物中(チェックリスト)
-  if(t && t.phase==='shopping'){
-    area.innerHTML = tripHTML(t);
-    return;
-  }
-  // まとめ買いリスト
-  area.innerHTML = buyPanelHTML();
+  if(!t){ area.innerHTML = buyPanelHTML(); return; }
+
+  const todo   = t.lines.filter(l=>l.status==='todo');
+  const bought = t.lines.filter(l=>l.status==='bought');
+
+  if(!todo.length && !bought.length){ state.trip=null; area.innerHTML = buyPanelHTML(); return; }
+
+  let html='';
+  if(todo.length)   html += shoppingHTML(todo, t);   // まだ買ってない品(チェックリスト)
+  if(bought.length) html += purchasedHTML(bought);   // 買えた品(持ち帰り待ち)
+  area.innerHTML = html;
 }
 
 function buyPanelHTML(){
@@ -428,45 +438,53 @@ function buyPanelHTML(){
   </div>`;
 }
 
-function tripHTML(t){
-  const done = t.lines.filter(l=>l.done).length;
-  const pct = t.lines.length ? Math.round(done/t.lines.length*100) : 0;
-  const rows = t.lines.map(l=>`
-    <div class="checkrow ${l.done?'done':''}" onclick="toggleLine('${l.id}')">
-      <div class="box">${l.done?'✓':''}</div>
+// まだ買ってない品(チェックリスト)
+function shoppingHTML(todo, t){
+  const rows = todo.map(l=>`
+    <div class="checkrow" onclick="toggleLine('${l.id}')">
+      <div class="box"></div>
       <span class="emo">${l.emo}</span>
       <span class="nm">${esc(l.name)}</span>
-      ${l.done?nameChip(l.by):''}
     </div>`).join('');
+  const me = myMember();
+  const restLabel = me ? `残り${todo.length}品ぜんぶ ${esc(me.name)}が買った`
+                       : `残りぜんぶ 自分が買った`;
   return `
   <div class="card trip">
     <div class="trip-head">
       <span style="font-size:20px">🛒</span>
       <h2>買い物中…</h2>
       <span class="time">${fmtTime(t.departAt)} 出発</span>
-      <span class="count">${done}/${t.lines.length}</span>
+      <span class="count">残り${todo.length}品</span>
     </div>
-    <div class="pbar"><i style="width:${pct}%"></i></div>
+    <p class="trip-note">買えた品をタップ → 「購入済み」に移ります（相手を待たなくてOK）</p>
     ${rows}
-    ${tallyHTML(t.lines)}
-    <button class="allbought" onclick="allBought()">全部買った！（車に積んだ）</button>
+    <button class="restbtn" onclick="buyRestByMe()">${restLabel}</button>
   </div>`;
 }
 
-function carHTML(t){
-  const rows = t.lines.map(l=>`
-    <div class="carrow"><span class="emo">${l.emo}</span><span class="nm">${esc(l.name)}</span>${nameChip(l.by)}</div>
-  `).join('');
+// 買えた品(持ち帰り待ち)
+function purchasedHTML(bought){
+  const rows = bought.map(l=>`
+    <div class="carrow">
+      <span class="emo">${l.emo}</span>
+      <span class="nm">${esc(l.name)}</span>
+      ${nameChip(l.by)}
+      <button class="undo" onclick="toggleLine('${l.id}')" title="買い物リストに戻す">取消</button>
+    </div>`).join('');
+  const me = myMember();
+  const label = me ? `🏠 家に着いた（${esc(me.name)}のぶんを棚へ）`
+                   : `🏠 家に着いた（棚に入れた）`;
   return `
   <div class="card car">
     <div class="car-head">
-      <span style="font-size:20px">✅</span>
-      <h2>購入済み（車の中）</h2>
-      <span class="tag">🚗 車内</span>
+      <span style="font-size:20px">🛍️</span>
+      <h2>購入済み（持ち帰り待ち）</h2>
+      <span class="tag">🛒 買えた</span>
     </div>
     ${rows}
-    ${tallyHTML(t.lines)}
-    <button class="arrive" onclick="arriveHome()">自宅に到着！（在庫を戻す）</button>
+    ${tallyHTML(bought)}
+    <button class="arrive" onclick="arriveHome()">${label}</button>
   </div>`;
 }
 
@@ -519,6 +537,18 @@ function setTab(c){ activeTab=c; renderCatalog(); }
 
 function toggleBuy(id){
   const i = state.items.find(x=>x.id===id); if(!i) return;
+  const t = state.trip;
+  if(t){
+    // 買い物中は、図鑑タップで「買い物中リスト」に直接 追加/削除できる
+    const line = t.lines.find(l=>l.id===id);
+    if(line){
+      if(line.status==='todo'){ t.lines = t.lines.filter(l=>l.id!==id); i.buy=false; } // まだ買ってない → 取り消し
+      // 既に購入済み(bought)の品は図鑑タップでは外さない（「取消」ボタンで戻す）
+    } else {
+      t.lines.push({id:i.id, name:i.name, emo:i.emo, status:'todo', by:null}); i.buy=true;
+    }
+    save(); return;
+  }
   i.buy = !i.buy; save();
 }
 function cycleStock(id){
@@ -538,35 +568,42 @@ function depart(){
   if(!buy.length) return;
   state.trip = {
     departAt: Date.now(),
-    phase:'shopping',
-    lines: buy.map(i=>({id:i.id, name:i.name, emo:i.emo, done:false, by:null}))
+    lines: buy.map(i=>({id:i.id, name:i.name, emo:i.emo, status:'todo', by:null}))
   };
   save();
 }
+// チェックリスト(todo→bought) / 購入済みの「取消」(bought→todo)
 function toggleLine(id){
   const l = state.trip.lines.find(x=>x.id===id); if(!l) return;
-  if(!l.done){
+  if(l.status==='todo'){
     const me = getMe();
     if(!me){ openMembers(); return; }   // 自分が未設定ならまず選んでもらう
-    l.done = true; l.by = me;            // チェックした人＝買った人
+    l.status='bought'; l.by = me;        // 買った人＝チェックした人
   } else {
-    l.done = false; l.by = null;
+    l.status='todo'; l.by = null;
   }
   save();
 }
-function allBought(){
+// 残りぜんぶを自分が買ったことにする(ショートカット)
+function buyRestByMe(){
   const me = getMe();
-  state.trip.lines.forEach(l=>{ if(!l.done){ l.done=true; l.by = l.by || me || null; } });
-  state.trip.phase='car';
+  if(!me){ openMembers(); return; }
+  state.trip.lines.forEach(l=>{ if(l.status==='todo'){ l.status='bought'; l.by=me; } });
   save();
 }
+// 家に着いた：自分が買ったぶんだけ在庫を「届いた」に戻して片付ける
 function arriveHome(){
-  // 買った品の在庫を「届いた」に戻し、まとめ買いから外す
-  state.trip.lines.forEach(l=>{
+  const me = getMe();
+  if(!me){ openMembers(); return; }
+  const mine = state.trip.lines.filter(l=>l.status==='bought' && l.by===me);
+  if(!mine.length){ alert('あなたが買った品はまだありません'); return; }
+  const ids = new Set(mine.map(l=>l.id));
+  mine.forEach(l=>{
     const i = state.items.find(x=>x.id===l.id);
     if(i){ i.stock='arrived'; i.buy=false; }
   });
-  state.trip = null;
+  state.trip.lines = state.trip.lines.filter(l=>!ids.has(l.id));
+  if(!state.trip.lines.length) state.trip = null;
   save();
 }
 
