@@ -150,6 +150,30 @@
   .modal .ok{background:var(--blue);color:#fff;}
   .modal .cancel{background:#f0ece4;color:var(--muted);}
 
+  /* ---- だれが使う(端末の持ち主) ---- */
+  .mebar{display:flex;align-items:center;gap:10px;margin:-6px 4px 14px;}
+  .mebar-lbl{font-size:13px;color:var(--muted);font-weight:700;}
+  .me-chip{font-size:15px;font-weight:800;padding:8px 16px;border-radius:22px;border:2px solid var(--line);
+    background:#fff;color:var(--text);cursor:pointer;box-shadow:var(--shadow);}
+
+  /* ---- 買った人チップ ---- */
+  .who{font-size:12px;font-weight:800;padding:2px 10px;border-radius:20px;white-space:nowrap;}
+  .checkrow .who,.carrow .who{margin-left:auto;}
+  .tally{display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center;justify-content:center;
+    font-size:13px;font-weight:700;color:var(--muted);margin:4px 0 12px;padding-top:10px;border-top:1px dashed var(--line);}
+
+  /* ---- 家族モーダル ---- */
+  .modal-note{font-size:12px;color:var(--muted);margin-bottom:12px;line-height:1.6;}
+  .memrow{display:flex;align-items:center;gap:6px;margin-bottom:8px;}
+  .mempick{flex:1;display:flex;align-items:center;gap:9px;font-size:16px;font-weight:800;text-align:left;
+    padding:11px 13px;border:2px solid var(--line);border-radius:12px;background:#fff;cursor:pointer;color:var(--text);}
+  .memrow.sel .mempick{border-color:var(--green);background:var(--green-bg);}
+  .mempick b{font-weight:700;font-size:12px;color:var(--green);}
+  .mdot{width:16px;height:16px;border-radius:50%;flex:none;}
+  .medit{width:40px;height:40px;border:1.5px solid var(--line);border-radius:11px;background:#fff;cursor:pointer;font-size:16px;flex:none;}
+  .addmem{width:100%;margin-top:4px;font-size:14px;font-weight:800;color:var(--accent);
+    background:#fff8f6;border:2px dashed var(--pink-border);border-radius:12px;padding:11px;cursor:pointer;}
+
   .hint{font-size:12px;color:var(--muted);text-align:center;margin-top:18px;line-height:1.7;}
 </style>
 </head>
@@ -161,6 +185,11 @@
     <h1>フジタ家 まとめ買い</h1>
     <div class="sync"><span class="dot local" id="syncDot"></span><span id="syncText">この端末に保存中</span></div>
   </header>
+
+  <div class="mebar">
+    <span class="mebar-lbl">🙋 今使っているのは</span>
+    <button class="me-chip" id="meChip" onclick="openMembers()"><span id="meName">だれ？</span> ▾</button>
+  </div>
 
   <!-- まとめ買い / 買い物中 / 車の中 -->
   <div id="cartArea"></div>
@@ -197,6 +226,17 @@
       <button class="cancel" id="mCancel">キャンセル</button>
       <button class="ok" id="mOk">保存</button>
     </div>
+  </div>
+</div>
+
+<!-- だれが使う？ モーダル -->
+<div class="modal-bg" id="memBg">
+  <div class="modal">
+    <h3>🙋 だれが使っていますか？</h3>
+    <p class="modal-note">この端末の持ち主を選んでください（買った人の記録に使います）。端末ごとに1回選べばOKです。</p>
+    <div id="memList"></div>
+    <button class="addmem" id="addMemBtn">＋ 家族を追加</button>
+    <div class="row"><button class="cancel" id="memClose">閉じる</button></div>
   </div>
 </div>
 
@@ -244,15 +284,38 @@ const SEED = {
     {id:'i17', name:'食器用洗剤', sub:'', emo:'🧽', cat:'キッチン', stock:'ok', buy:false},
     {id:'i18', name:'トイレットペーパー', sub:'', emo:'🧻', cat:'トイレ', stock:'ok', buy:false},
   ],
-  trip:null   // {departAt, phase:'shopping'|'car', lines:[{id,name,emo,done}]}
+  members:[
+    {id:'m1', name:'わたし', color:'#e05a4b'},
+    {id:'m2', name:'ダンナ', color:'#3f6fb5'}
+  ],
+  trip:null   // {departAt, phase:'shopping'|'car', lines:[{id,name,emo,done,by}]}
 };
+const MEMBER_COLORS=['#e05a4b','#3f6fb5','#2e9d6e','#e0912b','#8e5bb5','#c0398b','#2aa6a0'];
 
 const STORE_KEY = 'fujita_kaimono_v1';
+const ME_KEY = 'fujita_kaimono_me';   // 「自分はだれか」= この端末だけの設定
 let DB = null;         // Firebase database ref (共有モード時)
 let state = null;
 let activeTab = CATS[0];
 let editMode = false;
 let editingId = null;
+
+/* ---------- 「だれが使っているか」= 端末ごとの設定 ---------- */
+let meFallback = null; // localStorage不可の環境用
+function getMe(){ try{ return localStorage.getItem(ME_KEY) || null; }catch(e){ return meFallback; } }
+function setMe(id){ try{ localStorage.setItem(ME_KEY, id||''); }catch(e){ meFallback = id||null; } if(!id) meFallback=null; render(); }
+function memberById(id){ return (state.members||[]).find(m=>m.id===id) || null; }
+function myMember(){ return memberById(getMe()); }
+
+/* 旧データにmembersが無ければ補う */
+function ensureShape(s){
+  let changed=false;
+  if(!s.members || !s.members.length){
+    s.members=[{id:'m1',name:'わたし',color:'#e05a4b'},{id:'m2',name:'ダンナ',color:'#3f6fb5'}];
+    changed=true;
+  }
+  return changed;
+}
 
 /* ---------- 保存・読込 ---------- */
 function loadLocal(){
@@ -270,7 +333,7 @@ function save(){
 /* ---------- 起動 ---------- */
 function boot(){
   if(FIREBASE_CONFIG){ startFirebase(); }
-  else { state = loadLocal(); markSync(false); render(); }
+  else { state = loadLocal(); if(ensureShape(state)) saveLocal(); markSync(false); render(); }
 }
 
 function markSync(online){
@@ -289,7 +352,8 @@ function startFirebase(){
     DB = firebase.database().ref('kaimono');
     DB.on('value', snap=>{
       state = snap.val() || JSON.parse(JSON.stringify(SEED));
-      if(!snap.val()) DB.set(state);       // 初回：初期データを流し込み
+      const added = ensureShape(state);
+      if(!snap.val() || added) DB.set(state);   // 初回 or 家族データ補完をクラウドへ
       markSync(true); render();
     });
   };
@@ -308,8 +372,19 @@ const $ = s=>document.querySelector(s);
 
 function render(){
   if(!state) return;
+  renderMeChip();
   renderCart();
   renderCatalog();
+}
+
+function renderMeChip(){
+  const me = myMember();
+  const nameEl = $('#meName'), chip = $('#meChip');
+  if(nameEl) nameEl.textContent = me ? me.name : 'だれ？';
+  if(chip){
+    if(me){ chip.style.borderColor = me.color; chip.style.color = me.color; }
+    else { chip.style.borderColor = ''; chip.style.color = ''; }
+  }
 }
 
 /* ---------- まとめ買い / 買い物中 / 車の中 ---------- */
@@ -361,6 +436,7 @@ function tripHTML(t){
       <div class="box">${l.done?'✓':''}</div>
       <span class="emo">${l.emo}</span>
       <span class="nm">${esc(l.name)}</span>
+      ${l.done?nameChip(l.by):''}
     </div>`).join('');
   return `
   <div class="card trip">
@@ -372,13 +448,14 @@ function tripHTML(t){
     </div>
     <div class="pbar"><i style="width:${pct}%"></i></div>
     ${rows}
+    ${tallyHTML(t.lines)}
     <button class="allbought" onclick="allBought()">全部買った！（車に積んだ）</button>
   </div>`;
 }
 
 function carHTML(t){
   const rows = t.lines.map(l=>`
-    <div class="carrow"><span class="emo">${l.emo}</span><span class="nm">${esc(l.name)}</span></div>
+    <div class="carrow"><span class="emo">${l.emo}</span><span class="nm">${esc(l.name)}</span>${nameChip(l.by)}</div>
   `).join('');
   return `
   <div class="card car">
@@ -388,6 +465,7 @@ function carHTML(t){
       <span class="tag">🚗 車内</span>
     </div>
     ${rows}
+    ${tallyHTML(t.lines)}
     <button class="arrive" onclick="arriveHome()">自宅に到着！（在庫を戻す）</button>
   </div>`;
 }
@@ -461,16 +539,24 @@ function depart(){
   state.trip = {
     departAt: Date.now(),
     phase:'shopping',
-    lines: buy.map(i=>({id:i.id, name:i.name, emo:i.emo, done:false}))
+    lines: buy.map(i=>({id:i.id, name:i.name, emo:i.emo, done:false, by:null}))
   };
   save();
 }
 function toggleLine(id){
   const l = state.trip.lines.find(x=>x.id===id); if(!l) return;
-  l.done = !l.done; save();
+  if(!l.done){
+    const me = getMe();
+    if(!me){ openMembers(); return; }   // 自分が未設定ならまず選んでもらう
+    l.done = true; l.by = me;            // チェックした人＝買った人
+  } else {
+    l.done = false; l.by = null;
+  }
+  save();
 }
 function allBought(){
-  state.trip.lines.forEach(l=>l.done=true);
+  const me = getMe();
+  state.trip.lines.forEach(l=>{ if(!l.done){ l.done=true; l.by = l.by || me || null; } });
   state.trip.phase='car';
   save();
 }
@@ -528,7 +614,55 @@ function saveModal(){
   closeModal(); save();
 }
 
+/* ---------- 家族(だれが使う) ---------- */
+function openMembers(){ renderMembers(); $('#memBg').classList.add('on'); }
+function closeMembers(){ $('#memBg').classList.remove('on'); }
+function renderMembers(){
+  const me = getMe();
+  $('#memList').innerHTML = (state.members||[]).map(m=>`
+    <div class="memrow ${m.id===me?'sel':''}">
+      <button class="mempick" onclick="chooseMe('${m.id}')">
+        <span class="mdot" style="background:${m.color}"></span>${esc(m.name)}${m.id===me?' <b>（あなた）</b>':''}
+      </button>
+      <button class="medit" title="名前を変更" onclick="renameMem('${m.id}')">✏️</button>
+      <button class="medit" title="削除" onclick="delMem('${m.id}')">🗑️</button>
+    </div>`).join('');
+}
+function chooseMe(id){ setMe(id); renderMembers(); }   // setMeがrender()を呼ぶ
+function renameMem(id){
+  const m=memberById(id); if(!m) return;
+  const n=prompt('名前を変更', m.name); if(n===null) return;
+  const nm=n.trim(); if(!nm) return;
+  m.name=nm; save(); renderMembers();
+}
+function addMem(){
+  const n=prompt('家族の名前を入力（例：たろう）'); if(n===null) return;
+  const nm=n.trim(); if(!nm) return;
+  const used=(state.members||[]).length;
+  state.members.push({id:'m'+Date.now(), name:nm, color:MEMBER_COLORS[used%MEMBER_COLORS.length]});
+  save(); renderMembers();
+}
+function delMem(id){
+  if((state.members||[]).length<=1){ alert('少なくとも1人は残してください'); return; }
+  if(!confirm('この家族を削除しますか？')) return;
+  state.members = state.members.filter(m=>m.id!==id);
+  if(getMe()===id) setMe('');
+  save(); renderMembers();
+}
+
 /* ---------- ユーティリティ ---------- */
+function nameChip(byId){
+  const m = memberById(byId); if(!m) return '';
+  return `<span class="who" style="background:${m.color}22;color:${m.color}">${esc(m.name)}</span>`;
+}
+function tallyHTML(lines){
+  const cnt={};
+  lines.forEach(l=>{ if(l.by){ cnt[l.by]=(cnt[l.by]||0)+1; } });
+  const ids = Object.keys(cnt).filter(id=>memberById(id));
+  if(!ids.length) return '';
+  const parts = ids.map(id=>`${nameChip(id)}<span style="color:var(--text)">${cnt[id]}品</span>`);
+  return `<div class="tally">買った人 ▸ ${parts.join('')}</div>`;
+}
 function stockBadge(s){
   if(s==='low') return `<span class="badge low">そろそろ</span>`;
   if(s==='out') return `<span class="badge out">切れた</span>`;
@@ -543,6 +677,9 @@ document.getElementById('editBtn').addEventListener('click', toggleEdit);
 document.getElementById('mCancel').addEventListener('click', closeModal);
 document.getElementById('mOk').addEventListener('click', saveModal);
 document.getElementById('modalBg').addEventListener('click', e=>{ if(e.target.id==='modalBg') closeModal(); });
+document.getElementById('addMemBtn').addEventListener('click', addMem);
+document.getElementById('memClose').addEventListener('click', closeMembers);
+document.getElementById('memBg').addEventListener('click', e=>{ if(e.target.id==='memBg') closeMembers(); });
 </script>
 </body>
 </html>
